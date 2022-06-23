@@ -34,11 +34,10 @@ ORTHANC_PASSWORD = credentials["orthanc_password"]
 PROGRAM = "d6PLRyy8l9L"  # Programa de ecografía PEDIÁTRICO
 PROGRAM_STAGE = "yvhfP9fmA3W"
 OU_ROOT = "uDNvnDC9DHj"
-MIN_NUMBER_FRAMES = 24 # https://www.editalo.pro/videoedicion/fps/
+MIN_NUMBER_FRAMES = 30 # https://www.editalo.pro/videoedicion/fps/
 
 VIDEO_DE = ["g33y4QmwHz7", "rXdrl3bPegQ", "uZAhzWxZ7Er", "SZHbLco7bNr", "DZCtmkLFDRQ",
-          "H8yuwsOTmgY", "biJwwxMpehw", "yicABYDlp0S", "sdBNeTfC4GG", "BC1hwelJFNz",
-          "ZwC1GU2hmmw", "FsJtPLXSJ8q"]
+          "H8yuwsOTmgY", "biJwwxMpehw", "yicABYDlp0S", "sdBNeTfC4GG", "BC1hwelJFNz", ]
 
 MAX_NUMBER_VIDEOS = len(VIDEO_DE)
 
@@ -57,13 +56,13 @@ fh = logging.FileHandler(FILENAME_LOG, encoding='utf-8')
 fh.setLevel(logging.DEBUG)
 # create console handler which logs even debug messages
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 # create formatter and add it to the handlers
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 fh.setFormatter(formatter)
 # add the handlers to logger
-logger.addHandler(ch)
+#logger.addHandler(ch)
 logger.addHandler(fh)
 
 
@@ -149,7 +148,8 @@ def generate_video(instance_id):
 
     img_array = []
     size = None
-    for filename in glob.glob('./images/' + instance_id + '/*.png'):
+    #Good order: sorted(glob.glob("../../Documents/ImageAnalysis.nosync/sliceImage/*.bmp"), key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
+    for filename in sorted(glob.glob('./images/' + instance_id + '/*.png'), key=lambda x: int(os.path.splitext(os.path.basename(x))[0])):
         img = cv2.imread(filename)
         height, width, layers = img.shape
         size = (width, height)
@@ -157,8 +157,8 @@ def generate_video(instance_id):
 
     logger.debug("Start video processing")
     filename_video = "videos/" + instance_id + ".mp4"
-    # out = cv2.VideoWriter(filename='project.avi', fourcc=cv2.VideoWriter_fourcc(*'DIVX'), fps=10, frameSize=size)
-    out = cv2.VideoWriter(filename=filename_video, fourcc=cv2.VideoWriter_fourcc(*'mp4v'), fps=10, frameSize=size)
+    # out = cv2.VideoWriter(filename='project.avi', fourcc=cv2.VideoWriter_fourcc(*'DIVX'), fps=30, frameSize=size)
+    out = cv2.VideoWriter(filename=filename_video, fourcc=cv2.VideoWriter_fourcc(*'mp4v'), fps=30, frameSize=size)
 
     for i in range(len(img_array)):
         out.write(img_array[i])
@@ -425,7 +425,6 @@ def main(ultrasound_date):
 
 if __name__ == "__main__":
     start_date = date.today()
-    for x in range(1, 8):
+    for x in range(1, 7):
         ultrasound_date = start_date - datetime.timedelta(days=x)
         main(ultrasound_date)
-
