@@ -36,10 +36,14 @@ PROGRAM_STAGE = "yvhfP9fmA3W"
 OU_ROOT = "uDNvnDC9DHj"
 MIN_NUMBER_FRAMES = 30 # https://www.editalo.pro/videoedicion/fps/
 
-VIDEO_DE = ["g33y4QmwHz7", "rXdrl3bPegQ", "uZAhzWxZ7Er", "SZHbLco7bNr", "DZCtmkLFDRQ",
-          "H8yuwsOTmgY", "biJwwxMpehw", "yicABYDlp0S", "sdBNeTfC4GG", "BC1hwelJFNz", ]
 
-MAX_NUMBER_VIDEOS = len(VIDEO_DE)
+DE_PATOLOGIA = "H2vzpa4ZFCf"
+
+VIDEO_DE_SIN = ["g33y4QmwHz7"]
+
+VIDEO_DE_PAT = [ "rXdrl3bPegQ", "uZAhzWxZ7Er", "SZHbLco7bNr", "DZCtmkLFDRQ",
+          "H8yuwsOTmgY" ]
+
 
 
 # Logging setup ########################################################################################################
@@ -176,9 +180,23 @@ def get_event_uid(event_dict, field, value):
                 return event
 
 
-def get_video_de_uid(index):
+def get_video_de_uid(patologia,index):
     # ordered list of uids of the video DE
-    return VIDEO_DE[index]
+    if patologia == "01":
+        return VIDEO_DE_SIN[index]
+    elif patologia == "02":
+        return VIDEO_DE_PAT[index]
+    else:
+        return None
+
+
+def expected_max_number_video(patologia):
+    if patologia == "01":
+        return len(VIDEO_DE_SIN)
+    elif patologia == "02":
+        return len(VIDEO_DE_PAT)
+    else:
+        return None # TODO raise error or control the value
 
 
 # Returns the uid of the fileresource
@@ -219,7 +237,7 @@ def add_file_to_event(program_uid, event_uid, de_uid, file_resource_uid):
             }
     logging.debug(data)
     response = requests.put(url_resource, json=data, auth=HTTPBasicAuth(DHIS2_USERNAME, DHIS2_PASSWORD))
-    logger.debug(response.json())
+    logger.debug(response)
     if response.ok:
         logger.info(f"Updated event {event_uid}. Added DE {de_uid} with file resource {file_resource_uid}")
     else:
@@ -227,12 +245,8 @@ def add_file_to_event(program_uid, event_uid, de_uid, file_resource_uid):
         response.raise_for_status()
 
 
-def send_video_to_dhis2(event_uid, video_path, index):
-    if index+1 > MAX_NUMBER_VIDEOS:
-        logger.warning(f"Event ({event_uid}): Not uploading video '{video_path}' (index:{index+1}) because it reached the the max limit of videos ({MAX_NUMBER_VIDEOS})")
-    else:
-        video_de = get_video_de_uid(index)
-        logger.info(f"Event ({event_uid}): Start uploading video number {index+1} to dhis2 '{video_path}' (index:{index}) in DE ({video_de})")
+def send_video_to_dhis2(event_uid, video_path, video_de):
+        logger.info(f"Event ({event_uid}): Start uploading video to dhis2 '{video_path}' in DE ({video_de})")
         file_resource_uid = post_video_dhis2(video_path)
         logger.info(f"Uploaded file {video_path} to dhis2 and generated a File Resource with uid '{file_resource_uid}'")
 
@@ -261,7 +275,7 @@ def main(ultrasound_date):
     ultrasound_date_dhis2 = ultrasound_date.strftime("%Y-%m-%d")
 
     logger.info("-------------------------------------------")
-    logger.info(f"Constants: Program {PROGRAM}. Minimum of frames: {MIN_NUMBER_FRAMES}. Maximum number of videos: {MAX_NUMBER_VIDEOS}")
+    logger.info(f"Constants: Program {PROGRAM}. Minimum of frames: {MIN_NUMBER_FRAMES}.")
     logger.info(f"Starting the process for ultrasound date {ultrasound_date_dhis2}")
 
     # Get all events without videos uploaded
@@ -274,15 +288,29 @@ def main(ultrasound_date):
         event_uid = event["event"]
         tei_uid = event["trackedEntityInstance"]
         flag = False
+
+        # get patologia
+        patologia = None
         for dv in event["dataValues"]:
-            if dv["dataElement"] == get_video_de_uid(0):  # UID of DE vídeo 1
+            if dv["dataElement"] == DE_PATOLOGIA:
+                patologia = dv["value"]
+        logging.debug(f"Event={event_uid} Patologia={patologia}")
+
+        if not patologia:
+            logger.error(f"Event {event_uid} without patology")
+            continue # go to the next event
+
+        for dv in event["dataValues"]:
+            if dv["dataElement"] == get_video_de_uid(patologia, index=0):  # UID of DE vídeo 1
                 flag = True
         if flag:
             events_with_video[event_uid] = dict()
             events_with_video[event_uid]["tei"] = tei_uid
+            events_with_video[event_uid]["patologia"] = patologia
         else:
             events_without_video[event_uid] = dict()
             events_without_video[event_uid]["tei"] = tei_uid
+            events_without_video[event_uid]["patologia"] = patologia
 
     logger.debug(events_without_video)
     logger.info(f"{len(events_with_video)} events with video: {', '.join(events_with_video)}")
@@ -391,6 +419,11 @@ def main(ultrasound_date):
 
                         logger.info(f"Retrieved for Id Único {id_unico} and Series {series_id} a total number of {len(instances)} instances.")
 
+                        # Check if it is the number of instances expected
+                        if len(instances) > expected_max_number_video(events_without_video[event_uid]["patologia"]):
+                            logger.error(f'Event ({event_uid}). The number of videos ({len(instances)}) are different than expected ({expected_max_number_video(events_without_image[event_uid]["patologia"])})')
+                            continue
+
                         for idx_instances, instance in enumerate(instances):  # Keep the order
                             logger.info(f"Generating video {idx_instances+1} for instance {instance} and id único {id_unico}")
                             video_path = generate_video(instance)
@@ -402,16 +435,17 @@ def main(ultrasound_date):
                         logger.info(f'{id_unico}: Generated {len(events_without_video[event_uid]["videos"])} videos for event ({event_uid})')
 
                         logger.debug(events_without_video[event_uid]["videos"])
-                        if len(events_without_video[event_uid]["videos"]) > len(VIDEO_DE):
-                            logger.warning(f"Generated more videos ({len(events_without_video[event_uid]['videos'])}) than Video DE ({len(VIDEO_DE)}).")
-                            logger.warning(f"Uploading only the first {len(VIDEO_DE)} videos {events_without_video[event_uid]['videos'][:len(VIDEO_DE)]}.")
-                            events_without_video[event_uid]["videos"] = events_without_video[event_uid]["videos"][:len(VIDEO_DE)]
+                        if len(events_without_video[event_uid]["videos"]) > expected_max_number_video(events_without_video[event_uid]["patologia"]):
+                            #logger.warning(f"Generated more videos ({len(events_without_video[event_uid]['videos'])}) than Video DE ({expected_max_number_video(events_without_video[event_uid]["patologia"])}).")
+                            #logger.warning(f"Uploading only the first {expected_max_number_video(events_without_video[event_uid]["patologia"])} videos {events_without_video[event_uid]['videos'][{expected_max_number_video(events_without_video[event_uid]["patologia"])}]}.")
+                            events_without_video[event_uid]["videos"] = events_without_video[event_uid]["videos"][{expected_max_number_video(events_without_video[event_uid]["patologia"])}]
 
                         logger.debug(events_without_video[event_uid]["videos"])
                         # Uploading videos to dhis2
                         for idx_video, video in enumerate(events_without_video[event_uid]["videos"]):
                             logger.info(f"Uploading video {idx_video+1} for event {event_uid}")
-                            send_video_to_dhis2(event_uid, video, idx_video)
+                            video_de = get_video_de_uid(events_without_video[event_uid]["patologia"], idx_video)
+                            send_video_to_dhis2(event_uid, video, video_de)
                         logger.info(f'{id_unico}: Uploaded {len(events_without_video[event_uid]["videos"])} videos for event ({event_uid})')
                 else:
                     # If response code is not ok (200), print the resulting http error code with description
@@ -428,3 +462,4 @@ if __name__ == "__main__":
     for x in range(1, 7):
         ultrasound_date = start_date - datetime.timedelta(days=x)
         main(ultrasound_date)
+
