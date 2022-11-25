@@ -41,8 +41,7 @@ DE_PATOLOGIA = "H2vzpa4ZFCf"
 
 VIDEO_DE_SIN = ["g33y4QmwHz7"]
 
-VIDEO_DE_PAT = [ "rXdrl3bPegQ", "uZAhzWxZ7Er", "SZHbLco7bNr", "DZCtmkLFDRQ",
-          "H8yuwsOTmgY" ]
+VIDEO_DE_PAT = [ "rXdrl3bPegQ", "uZAhzWxZ7Er", "SZHbLco7bNr", "DZCtmkLFDRQ","H8yuwsOTmgY" ]
 
 
 
@@ -182,21 +181,21 @@ def get_event_uid(event_dict, field, value):
 
 def get_video_de_uid(patologia,index):
     # ordered list of uids of the video DE
-    if patologia == "01":
+    if patologia == "2":
         return VIDEO_DE_SIN[index]
-    elif patologia == "02":
+    elif patologia == "1":
         return VIDEO_DE_PAT[index]
     else:
         return None
 
 
 def expected_max_number_video(patologia):
-    if patologia == "01":
+    if patologia == "2":
         return len(VIDEO_DE_SIN)
-    elif patologia == "02":
+    elif patologia == "1":
         return len(VIDEO_DE_PAT)
     else:
-        return None # TODO raise error or control the value
+        return 0 # TODO raise error or control the value
 
 
 # Returns the uid of the fileresource
