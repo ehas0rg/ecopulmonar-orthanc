@@ -420,7 +420,7 @@ def main(ultrasound_date):
 
                         # Check if it is the number of instances expected
                         if len(instances) > expected_max_number_video(events_without_video[event_uid]["patologia"]):
-                            logger.error(f'Event ({event_uid}). The number of videos ({len(instances)}) are different than expected ({expected_max_number_video(events_without_image[event_uid]["patologia"])})')
+                            logger.error(f'Event ({event_uid}). The number of videos ({len(instances)}) are different than expected ({expected_max_number_video(events_without_video[event_uid]["patologia"])})')
                             continue
 
                         for idx_instances, instance in enumerate(instances):  # Keep the order
@@ -458,7 +458,7 @@ def main(ultrasound_date):
 
 if __name__ == "__main__":
     start_date = date.today()
-    for x in range(1, 7):
+    for x in range(0, 40):
         ultrasound_date = start_date - datetime.timedelta(days=x)
         main(ultrasound_date)
 
